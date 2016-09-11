@@ -2,8 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 
 import CanvasComponent from './components/CanvasComponent';
-
-console.log('about to render canvas component');
+import RandomShapeComponent from './components/RandomShapeComponent';
 
 ReactDOM.render(
 	<CanvasComponent />,

@@ -66,16 +66,18 @@ class CanvasComponent extends React.Component {
 			return p;
 		}
 
-		function isEyePair(eye1, eye2) {
-			// must be the same (or very close) angle
-			if ( Math.abs(eye1.angle - eye2.angle) > 5 ) return false;
+		const isOccupied = (pt) => {
+
+			for ( var id in this.state.shapes ) {
 			
-			// get distance between eyes
-			const d = distance(eye1, rotateAboutPoint(eye2, eye1, eye1.angle));
+				let shape = this.state.shapes[id];
+				// console.log(Math.abs(shape.x - pt.x), Math.abs(shape.y - pt.y));
+				if ( Math.abs(shape.x - pt.x) < unit / 2 && Math.abs(shape.y - pt.y) < unit / 2 ) return true;
 			
-			// should be very close to 1.5 * unit
-			return Math.abs(d - 1.5 * unit) < 5;
-		}
+			}
+
+			return false;
+		};
 
 		function mouseLeftOrRight(shape) {
 			let pt = rotateAboutPoint({ x: mouseX, y: mouseY }, shape, -shape.angle);
@@ -104,23 +106,60 @@ class CanvasComponent extends React.Component {
 				} else if ( shape.type === 'eye' ) {
 
 					// if mouse is to "left" of center vertical axis (rotated by angle), then possibility is left
-					let possibility = mouseLeftOrRight(shape);
+					let dir = mouseLeftOrRight(shape);
+					let considerPt = { x: shape.x, y: shape.y };
+
+					if ( dir === 'left' ) {
+						if ( shape.left ) {
+							// if mouse left and there is a left eye, considering a nose
+							considerPt.x -= 0.75 * unit;
+							considerPt.y += (mouseTopOrBottom(shape) === 'top' ? 1 : -1) * unit;
+						} else {
+							// if mouse left and no left eye, considering a left eye
+							considerPt.x -= 1.5 * unit;
+						}
+					} else if ( dir === 'right' ) {
+						if ( shape.right ) {
+							considerPt.x += 0.75 * unit;
+							considerPt.y += (mouseTopOrBottom(shape) === 'top' ? -1 : 1) * unit
+						} else {
+							considerPt.x += 1.5 * unit;
+						}
+					}
+
+					considerPt = rotateAboutPoint(considerPt, shape, shape.angle);
+
+					if ( isOccupied(considerPt) ) return delete shape.possibility; 
 
 					// given if mouse left or right of eye, if there's an eye in that direction,
 					// consider the pair of eyes
-					if ( shape[possibility] ) return shape.possibility = 'pair'; // i.e. eye.possibility = 'left' or 'right' 
+					if ( shape[dir] ) return shape.possibility = 'pair'; // i.e. eye.possibility = 'left' or 'right' 
 
 					// if no eye in that direction, consider a new eye
-					return shape.possibility = possibility;
+					return shape.possibility = dir;
 				
 				} else if ( shape.type === 'mouth' ) {
+
+					let considerPt = { x: shape.x, y: shape.y + unit };
+					considerPt = rotateAboutPoint(considerPt, shape, shape.angle);
+
+					if ( isOccupied(considerPt) ) return delete shape.possibility;
 
 					return shape.possibility = mouseTopOrBottom(shape); // possibility is "top" or "bottom"
 
 				} else if ( shape.type === 'nose' ) {
+
+					let considerPt = { x: shape.x, y: shape.y };
+					// embarrassing...
+					let dir = mouseLeftOrRight(shape) === 'left' ? 'top' : 'bottom';
 				
-					// embarrassing
-					return shape.possibility = mouseLeftOrRight(shape) === 'left' ? 'top' : 'bottom';
+					if ( dir === 'bottom' ) {
+						considerPt.y += unit;
+						considerPt = rotateAboutPoint(considerPt, shape, shape.angle + 90);
+						if ( isOccupied(considerPt) ) return delete shape.possibility;
+					}
+
+					return shape.possibility = dir; 
 				
 				}
 
@@ -154,7 +193,7 @@ class CanvasComponent extends React.Component {
 					if ( shape.possibility !== 'pair' ) {	
 
 						let posX = unit;
-
+						
 						if ( shape.possibility === 'left' ) posX *= -2;
 					
 						context.drawImage(img, posX, -unit / 2, unit, unit);
@@ -264,11 +303,27 @@ class CanvasComponent extends React.Component {
 			this.setState(state);
 		};
 
+		let randomShape = () => {
+			let i = 0;
+			let generate = () => {
+				i++;
+				let pt = { 
+					x: Math.random() * (this.state.width - 2 * unit) + unit,
+				   	y: Math.random() * (this.state.height - 2 * unit) + unit
+			   	};
+				pt.x = Math.round(pt.x);
+				pt.y = Math.round(pt.y);
+				if ( i > 10000 ) alert('There appears to be no more space left!');
+				if ( isOccupied(pt) ) return generate();
+				return pt;
+			}
+			let pt = generate();
+			addShape('oval', pt.x, pt.y, Math.round( Math.random() * 360 ));
+		}
+
 		const _init = () => {
-			addShape('eye', this.state.width / 2, this.state.height / 2, 30);
-			addShape('mouth', 200, 300, 0);
-			// addShape('oval', 100, 100);
-			// addShape('oval', 100, 100, 90);
+			randomShape(); randomShape();
+			//	addShape('oval', this.state.width / 2, this.state.height / 2, 30);
 		};
 
 		function near(pt1, pt2) {
@@ -396,13 +451,16 @@ class CanvasComponent extends React.Component {
 			window.requestAnimationFrame(_render);
 		};
 
+
+		this.randomShape = randomShape;
+
 		this.refs.canvas.addEventListener('mousemove', _onMouseMove);
 		this.refs.canvas.addEventListener('click', _onClick);
 		window.addEventListener('resize', _onResize.bind(this));
 		_init();
 		_render();
 	}
-
+	
 	render() {
 
 		let style = {
@@ -411,9 +469,26 @@ class CanvasComponent extends React.Component {
 			width: this.state.width 
 		};
 
+		let buttonStyle = {
+			fontSize: 30,
+			textAlign: 'center',
+			fontFamily: 'sans',
+			display: 'block',
+			position: 'absolute',
+			bottom: 20,
+			left: 20,
+			borderRadius: 25,
+			border: '2px solid #000',
+			height: 50,
+			width: 50,
+			background: '#fff',
+			cursor: 'pointer'
+		};
+
 		return (
 			<div style={style}>
 				<canvas ref="canvas" style={style} width={this.state.width} height={this.state.height}></canvas>
+				<div style={buttonStyle} onClick={this.randomShape}>+</div>
 			</div>
 		);
 	}
