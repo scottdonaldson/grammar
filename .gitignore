@@ -2,3 +2,5 @@
 */.DS_Store
 node_modules
 aws.json
+site
+js/dist
