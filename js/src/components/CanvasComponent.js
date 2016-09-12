@@ -16,7 +16,6 @@ class CanvasComponent extends React.Component {
 			noses: [],
 			mouths: []
 		};
-
 	}
 
 	componentDidMount() {
@@ -28,6 +27,7 @@ class CanvasComponent extends React.Component {
 		let activeShape;
 
 		let context = this.refs.canvas.getContext('2d');
+		context.fillStyle = '#fff';
 		const unit = 75;
 
 		function _onResize() {
@@ -319,11 +319,20 @@ class CanvasComponent extends React.Component {
 			}
 			let pt = generate();
 			addShape('oval', pt.x, pt.y, Math.round( Math.random() * 360 ));
-		}
+		};
+
+		let download = () => {
+			let canvas = this.refs.canvas;
+			let url = canvas.toDataURL(),
+				a = document.createElement('a');
+			a.href = url;
+			a.download = 'shapegrammar.png';
+			return a.click();
+		};
 
 		const _init = () => {
-			randomShape(); randomShape();
-			//	addShape('oval', this.state.width / 2, this.state.height / 2, 30);
+			randomShape(); 
+			randomShape();
 		};
 
 		function near(pt1, pt2) {
@@ -441,6 +450,8 @@ class CanvasComponent extends React.Component {
 		const _render = () => {
 			
 			context.clearRect(0, 0, this.state.width, this.state.height);
+			context.fillStyle = '#fff';
+			context.fillRect(0, 0, this.state.width, this.state.height);
 
 			for ( let id in this.state.shapes ) considerShape(this.state.shapes[id]);
 			for ( let id in this.state.shapes ) renderPreview(this.state.shapes[id]);
@@ -453,6 +464,7 @@ class CanvasComponent extends React.Component {
 
 
 		this.randomShape = randomShape;
+		this.download = download;
 
 		this.refs.canvas.addEventListener('mousemove', _onMouseMove);
 		this.refs.canvas.addEventListener('click', _onClick);
@@ -485,10 +497,16 @@ class CanvasComponent extends React.Component {
 			cursor: 'pointer'
 		};
 
+		let downloadStyle = Object.assign({}, buttonStyle);
+		downloadStyle.left = 90;
+		downloadStyle.backgroundImage = 'url(/img/download.png)';
+		downloadStyle.backgroundSize = '100% 100%';
+
 		return (
 			<div style={style}>
 				<canvas ref="canvas" style={style} width={this.state.width} height={this.state.height}></canvas>
 				<div style={buttonStyle} onClick={this.randomShape}>+</div>
+				<div style={downloadStyle} onClick={this.download}></div>
 			</div>
 		);
 	}
